@@ -57,3 +57,9 @@ Run `node --test tests/*.test.js` **locally**, without CI. Tests exercise the tu
 Review [LFM 1.0 license](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-ONNX/blob/main/LICENSE), model licenses and NexusVoice's third-party notices before selling a packaged version. No user audio or transcripts are persisted by default.
 
 See [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) for the actual-hardware verification checklist.
+
+## Browser model loading (2026-10-10)
+
+The LFM worker now imports the **Hugging Face documented browser ESM entry** `https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1`, replacing the failing `esm.sh` dynamic import. Initialization is sequential: Parakeet, LFM Q4, then Kokoro. A live progress panel shows the active module, real percentage and downloaded/total MB **only when byte telemetry is exposed** (currently LFM); other downloads remain indeterminate instead of displaying invented numbers. Initialization failures identify the stage and provide **Retry models**. Static Pages remains at `main/(root)` without CI.
+
+Local acceptance: `node --test tests/*.test.js`. On a target WebGPU MacBook, load all three models and send a voice turn; sandbox headless browser limitations do not establish successful GPU inference.

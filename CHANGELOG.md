@@ -10,3 +10,8 @@
 
 ## 0.1.0 — 2026-10-10
 - Initial half-duplex controller and LFM2.5 WebGPU worker.
+
+## 0.2.1 — 2026-10-10
+- Fixed LFM Transformers.js browser ESM import using the official documented jsDelivr entry.
+- Added real download telemetry and indeterminate fallback, sequential loading and retry.
+- Added local tests for download calculations and loader failure recovery. No CI workflow.

@@ -37,9 +37,16 @@ export class NexusConversationalist {
     if (this.initialized) return;
     if (this.initPromise) return this.initPromise;
     this.initPromise = (async () => {
+      this.emit("status", { module: "dictation", phase: "loading", detail: "Preparing Parakeet" });
       const health = await this.dictator.health();
-      if (!health?.ready) throw new Error("NexusDictation bridge not ready");
-      await Promise.all([this.reasoner.load(), this.voice.load()]);
+      if (!health?.ready) throw new Error("NexusDictation backend not ready");
+      this.emit("status", { module: "dictation", phase: "ready", detail: "Parakeet ready", percent: 100 });
+      this.emit("status", { module: "lfm", phase: "loading", detail: "Preparing LFM2.5" });
+      await this.reasoner.load();
+      this.emit("status", { module: "lfm", phase: "ready", detail: "LFM2.5 ready", percent: 100 });
+      this.emit("status", { module: "voice", phase: "loading", detail: "Preparing Kokoro" });
+      await this.voice.load();
+      this.emit("status", { module: "voice", phase: "ready", detail: "Kokoro ready", percent: 100 });
       this.initialized = true;
       this.emit("ready", { dictation: health.model, reasoning: LFM_MODEL });
     })();
