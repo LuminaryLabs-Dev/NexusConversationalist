@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0d1220"><title>NexusConversationalist | Luminary Labs</title>
+<link rel="stylesheet" href="./assets/site.css">
+</head>
+<body><main class="shell">
+<header class="hero"><p class="eyebrow">LUMINARY LABS / NEXUS</p>
+<h1>Nexus<span>Conversationalist</span></h1>
+<p class="intro">Local speech recognition, reasoning, and voice output. Three independent AI modules, one conversation.</p></header>
+<div class="ribbon"><span class="dot" id="state-dot"></span>
+<strong id="state">Ready to initialize</strong>
+<span class="ribbon-right" id="phase">Static GitHub Pages · Browser WebGPU</span></div>
+<section class="grid">
+<article class="model"><span class="model-index">01 / HEAR</span><h2>NexusDictation</h2>
+<p>Parakeet TDT v3 · WebGPU/WASM</p><div class="pill" id="asr-status">Waiting to load</div>
+<a href="https://huggingface.co/efederici/parakeet-tdt-0.6b-v3-onnx-int4" target="_blank" rel="noopener noreferrer">View transcription model ↗</a></article>
+<article class="model"><span class="model-index">02 / THINK</span><h2>NexusConversationalist</h2>
+<p>LFM2.5-1.2B Instruct · WebGPU Q4</p><div class="pill" id="llm-status">Waiting to load</div>
+<a href="https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-ONNX" target="_blank" rel="noopener noreferrer">View reasoning model ↗</a></article>
+<article class="model"><span class="model-index">03 / SPEAK</span><h2>NexusVoice</h2>
+<p>Kokoro 82M · WebGPU/WASM</p><div class="pill" id="tts-status">Waiting to load</div>
+<a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX" target="_blank" rel="noopener noreferrer">View voice model ↗</a></article>
+</section>
+<section class="console">
+<div class="panel-heading"><div><h2>Conversation</h2><p>Models run in your browser. First launch downloads their weights.</p></div><span class="privacy">● LOCAL INFERENCE</span></div>
+<div class="buttons"><button id="load" class="primary">Load models</button>
+<button id="start" disabled>Start listening</button><button id="stop" class="ghost" disabled>Stop</button>
+<button id="clear" class="ghost">Clear chat</button></div>
+<div class="notice" id="status" role="status" aria-live="polite">Chrome with WebGPU is recommended. Press Load models to start.</div>
+<div class="transcript" id="partial" aria-live="polite"></div>
+<div class="conversation" id="history" aria-label="Conversation history" aria-live="polite">
+<div class="empty">Your conversation will appear here. You can also type a message below.</div></div>
+<form id="send-form"><label class="sr-only" for="text">Message</label>
+<input id="text" autocomplete="off" placeholder="Type a message to test the language and voice models…">
+<button id="send" disabled>Send</button></form>
+</section>
+<footer><p>Browser-only mode uses Parakeet TDT v3 instead of native Parakeet Redux.
+No Python service, API keys, CI, or hosted inference server are required.</p>
+<p><a href="https://github.com/LuminaryLabs-Dev/NexusDictation">Dictation</a> ·
+<a href="https://github.com/LuminaryLabs-Dev/NexusConversationalist">Conversationalist</a> ·
+<a href="https://github.com/LuminaryLabs-Dev/NexusVoice">Voice</a></p></footer>
+</main><script type="module" src="./assets/main.js"></script></body></html>
