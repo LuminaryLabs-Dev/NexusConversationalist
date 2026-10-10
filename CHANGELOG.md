@@ -15,3 +15,9 @@
 - Fixed LFM Transformers.js browser ESM import using the official documented jsDelivr entry.
 - Added real download telemetry and indeterminate fallback, sequential loading and retry.
 - Added local tests for download calculations and loader failure recovery. No CI workflow.
+
+## 0.3.0 — 2026-10-10
+- Replaced the text-first shell with Lumina's compact voice-call interface, central pulsing WebGL2 GLSL custom element and gear settings.
+- Added optional 10%-relative microphone RMS wake monitoring with baseline/noise-floor/debounce/cooldown and tap-to-listen controls.
+- Kept the three independent ESM model adapters, loading/retry, transcript/chat, typed messages and call control unchanged.
+- Added UI and audio wake unit tests; GitHub Pages remains static root on main with no CI.

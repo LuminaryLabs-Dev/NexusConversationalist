@@ -2,48 +2,77 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0d1220"><title>NexusConversationalist | Luminary Labs</title>
+<meta name="theme-color" content="#080f19"><title>Lumina · NexusConversationalist</title>
 <link rel="stylesheet" href="./assets/site.css">
 </head>
-<body><main class="shell">
-<header class="hero"><p class="eyebrow">LUMINARY LABS / NEXUS</p>
-<h1>Nexus<span>Conversationalist</span></h1>
-<p class="intro">Local speech recognition, reasoning, and voice output. Three independent AI modules, one conversation.</p></header>
-<div class="ribbon"><span class="dot" id="state-dot"></span>
-<strong id="state">Ready to initialize</strong>
-<span class="ribbon-right" id="phase">Static GitHub Pages · Browser WebGPU</span></div>
-<section class="grid">
-<article class="model"><span class="model-index">01 / HEAR</span><h2>NexusDictation</h2>
-<p>Parakeet TDT v3 · WebGPU/WASM</p><div class="pill" id="asr-status">Waiting to load</div>
-<a href="https://huggingface.co/efederici/parakeet-tdt-0.6b-v3-onnx-int4" target="_blank" rel="noopener noreferrer">View transcription model ↗</a></article>
-<article class="model"><span class="model-index">02 / THINK</span><h2>NexusConversationalist</h2>
-<p>LFM2.5-1.2B Instruct · WebGPU Q4</p><div class="pill" id="llm-status">Waiting to load</div>
-<a href="https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-ONNX" target="_blank" rel="noopener noreferrer">View reasoning model ↗</a></article>
-<article class="model"><span class="model-index">03 / SPEAK</span><h2>NexusVoice</h2>
-<p>Kokoro 82M · WebGPU/WASM</p><div class="pill" id="tts-status">Waiting to load</div>
-<a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX" target="_blank" rel="noopener noreferrer">View voice model ↗</a></article>
-</section>
-<section class="console">
-<div class="panel-heading"><div><h2>Conversation</h2><p>Models run in your browser. First launch downloads their weights.</p></div><span class="privacy">● LOCAL INFERENCE</span></div>
-<div class="buttons"><button id="load" class="primary">Load models</button>
-<button id="start" disabled>Start listening</button><button id="stop" class="ghost" disabled>Stop</button>
-<button id="clear" class="ghost">Clear chat</button></div>
-<section class="model-progress" id="download-panel" hidden aria-label="Model loading progress" aria-live="polite">
-<div class="download-heading"><strong id="progress-model">Preparing downloads</strong><span id="progress-step">Model 1 of 3</span></div>
-<progress id="download-progress" max="100" aria-label="Current model download progress"></progress>
-<div class="download-details"><span id="progress-percent">Preparing…</span><span id="progress-bytes">Transfer size not yet available</span></div>
-</section>
-<div class="notice" id="status" role="status" aria-live="polite">Chrome with WebGPU is recommended. Press Load models to start.</div>
-<div class="transcript" id="partial" aria-live="polite"></div>
-<div class="conversation" id="history" aria-label="Conversation history" aria-live="polite">
-<div class="empty">Your conversation will appear here. You can also type a message below.</div></div>
-<form id="send-form"><label class="sr-only" for="text">Message</label>
-<input id="text" autocomplete="off" placeholder="Type a message to test the language and voice models…">
-<button id="send" disabled>Send</button></form>
-</section>
-<footer><p>Browser-only mode uses Parakeet TDT v3 instead of native Parakeet Redux.
-No Python service, API keys, CI, or hosted inference server are required.</p>
-<p><a href="https://github.com/LuminaryLabs-Dev/NexusDictation">Dictation</a> ·
-<a href="https://github.com/LuminaryLabs-Dev/NexusConversationalist">Conversationalist</a> ·
-<a href="https://github.com/LuminaryLabs-Dev/NexusVoice">Voice</a></p></footer>
-</main><script type="module" src="./assets/main.js"></script></body></html>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand"><div class="brand-symbol" aria-hidden="true">✦</div><div><h1>Lumina</h1><span>by Luminary Labs</span></div></div>
+    <div class="header-actions"><span class="connection"><span class="connection-dot" id="state-dot"></span><span id="state">Not connected</span></span>
+      <button id="settings-open" class="icon-button" type="button" aria-label="Open settings" title="Settings">
+       <svg width="21" height="21" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.7 2.9-1.7-.7a8.5 8.5 0 0 1-2.1 1.2l-.3 1.9h-3.3l-.3-1.9a8.5 8.5 0 0 1-2.1-1.2l-1.7.7-1.7-2.9 1.4-1.1a8.5 8.5 0 0 1 0-2.4L5.9 11l1.7-2.9 1.7.7a8.5 8.5 0 0 1 2.1-1.2l.3-1.9H15l.3 1.9a8.5 8.5 0 0 1 2.1 1.2l1.7-.7 1.7 2.9-1.4 1.1a8.5 8.5 0 0 1 0 2.9Z" transform="translate(-1.5 -1.5)"/></svg>
+      </button></div>
+  </header>
+  <main class="call-stage">
+    <div class="call-head"><span class="overline" id="call-overline">YOUR VOICE COMPANION</span><h2 id="call-heading">Hey, I'm Lumina.</h2><p id="call-subtitle">Tap the orb to begin a conversation.</p></div>
+    <div class="orb-area">
+      <div class="orb-halo" aria-hidden="true"></div>
+      <button id="start" class="orb-touch" type="button" aria-label="Tap Lumina to start listening" title="Tap to listen">
+        <lumina-orb id="lumina-orb" intensity="0.12" pulse="0.48" wave="0.38" speed="0.85" hue="0.62"></lumina-orb>
+      </button>
+      <div class="orb-reflection" aria-hidden="true"></div>
+    </div>
+    <div class="call-feedback">
+      <div id="call-state" class="call-state">Ready whenever you are</div>
+      <div id="partial" class="transcript" aria-live="polite"></div>
+      <div id="latest-message" class="latest-message" aria-live="polite">A voice-first conversation, right in your browser.</div>
+      <div id="status" class="status-message" role="status" aria-live="polite">Models download once from Hugging Face. Audio runs locally.</div>
+    </div>
+    <div class="call-controls">
+      <button id="auto-enable" class="control-button" type="button" aria-pressed="false" title="Enable microphone wake on voice-volume rise"><span class="control-icon" aria-hidden="true">◉</span><span id="auto-label">Auto-listen off</span></button>
+      <button id="chat-toggle" class="control-button" type="button" aria-expanded="false" aria-controls="chat-panel" title="Open text chat"><span class="control-icon" aria-hidden="true">☰</span><span>Chat</span></button>
+      <button id="stop" class="control-button hangup" type="button" disabled title="End call"><span class="control-icon" aria-hidden="true">⏹</span><span>End call</span></button>
+    </div>
+    <p class="privacy-note"><span class="tiny-indicator"></span> Inference stays on this device <span aria-hidden="true">·</span> No backend required</p>
+  </main>
+  <footer class="footer"><span>NEXUS CONVERSATIONALIST</span><span>PARAKEET <i>·</i> LFM2.5 <i>·</i> KOKORO</span></footer>
+</div>
+<aside id="chat-panel" class="chat-panel" aria-label="Conversation transcript" inert>
+  <div class="panel-header"><div><h2>Conversation</h2><p>Text transcript & manual input</p></div><button id="chat-close" class="icon-button" aria-label="Close chat" type="button">✕</button></div>
+  <div id="history" class="conversation" aria-live="polite"><div class="empty">Your conversation will appear here.</div></div>
+  <form id="send-form"><label class="sr-only" for="text">Message</label><input id="text" autocomplete="off" placeholder="Write a message…"><button id="send" type="submit" disabled>Send</button></form>
+  <button id="clear" class="clear-button" type="button">Clear conversation</button>
+</aside>
+<div id="scrim" class="scrim" hidden></div>
+<dialog id="settings" class="settings" aria-labelledby="settings-title">
+  <div class="settings-header"><div><span class="eyebrow">LUMINA</span><h2 id="settings-title">Settings</h2></div><button id="settings-close" class="icon-button" type="button" aria-label="Close settings">✕</button></div>
+  <p class="settings-description">Choose when Lumina listens and watch local models load. The orb and voice controls remain independent of the model backends.</p>
+  <section class="settings-section"><h3>Models</h3>
+    <div class="model-row"><span>01 · NexusDictation <small>Parakeet TDT v3 · WebGPU / WASM</small></span><strong id="asr-status">Waiting</strong></div>
+    <div class="model-row"><span>02 · NexusConversationalist <small>LFM2.5-1.2B · WebGPU Q4</small></span><strong id="llm-status">Waiting</strong></div>
+    <div class="model-row"><span>03 · NexusVoice <small>Kokoro 82M · WebGPU / WASM</small></span><strong id="tts-status">Waiting</strong></div>
+    <button id="load" class="button-primary" type="button">Load models</button>
+    <section class="model-progress" id="download-panel" hidden aria-label="Model download progress" aria-live="polite">
+      <div class="download-heading"><strong id="progress-model">Preparing models</strong><span id="progress-step">Model 1 of 3</span></div>
+      <progress id="download-progress" max="100" aria-label="Current model download progress"></progress>
+      <div class="download-details"><span id="progress-percent">Preparing…</span><span id="progress-bytes">Transfer size not yet available</span></div>
+    </section>
+  </section>
+  <section class="settings-section"><h3>Voice activation</h3>
+    <label class="setting-row"><span>Auto-listen on volume rise <small>Requires microphone permission. Click the orb to listen at any time.</small></span><input id="auto-toggle" type="checkbox"></label>
+    <label class="range-label" for="wake-threshold">Relative volume increase <output id="threshold-value" for="wake-threshold">10%</output></label>
+    <input id="wake-threshold" type="range" min="10" max="80" step="5" value="10">
+    <p class="settings-hint">Compares microphone RMS against a quiet rolling baseline, with a noise floor, short confirmation, and cooldown. It pauses during Lumina's response to avoid feedback.</p>
+    <p id="mic-status" class="settings-hint">Microphone permission has not been requested.</p>
+  </section>
+  <section class="settings-section"><h3>Orb shader</h3>
+    <label class="range-label" for="orb-wave">Surface motion <output id="wave-value">38%</output></label><input id="orb-wave" type="range" min="0" max="100" value="38">
+    <label class="range-label" for="orb-speed">Pulse speed <output id="speed-value">85%</output></label><input id="orb-speed" type="range" min="20" max="200" value="85">
+    <p class="settings-hint">Embeddable GLSL WebGL2 component: <code>&lt;lumina-orb&gt;&lt;/lumina-orb&gt;</code>.</p>
+  </section>
+  <div class="settings-bottom"><a href="https://github.com/LuminaryLabs-Dev/NexusConversationalist" target="_blank" rel="noopener noreferrer">View repository ↗</a><span>Locally processed · Browser WebGPU</span></div>
+</dialog>
+<script type="module" src="./assets/lumina-orb.js"></script>
+<script type="module" src="./assets/main.js"></script>
+</body></html>

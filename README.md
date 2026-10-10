@@ -63,3 +63,11 @@ See [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) for the actual-hardware verificatio
 The LFM worker now imports the **Hugging Face documented browser ESM entry** `https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1`, replacing the failing `esm.sh` dynamic import. Initialization is sequential: Parakeet, LFM Q4, then Kokoro. A live progress panel shows the active module, real percentage and downloaded/total MB **only when byte telemetry is exposed** (currently LFM); other downloads remain indeterminate instead of displaying invented numbers. Initialization failures identify the stage and provide **Retry models**. Static Pages remains at `main/(root)` without CI.
 
 Local acceptance: `node --test tests/*.test.js`. On a target WebGPU MacBook, load all three models and send a voice turn; sandbox headless browser limitations do not establish successful GPU inference.
+
+## Lumina voice-call interface (2026-10-10)
+
+The root GitHub Pages shell now presents NexusConversationalist as **Lumina**, centered on the embeddable [GLSL orb](assets/lumina-orb.js) and streamlined audio-call controls. Open the gear for the existing model loading/progress/retry flow and audio activation settings; open Chat for transcript, text input and Clear conversation. All inference adapters and existing model loading files are unchanged.
+
+The orb is a standalone custom element: `<lumina-orb intensity="0.12" pulse="0.48" wave="0.38" speed="0.85"></lumina-orb>`. Import `assets/lumina-orb.js` as a module and change GLSL uniforms live with `setParams({ intensity, pulse, wave, speed, hue, mode })`. No new dependency or build step.
+
+**Voice activation** is optional and off by default. After a user grants microphone permission, a local RMS monitor compares audio against a rolling ambient baseline and starts NexusDictation on a sustained rise of at least 10%, with a noise floor and cooldown. The Settings panel adjusts sensitivity, and tapping the orb starts listening manually. Ambient volume detection is not a wake word; other sounds may trigger it. Browser privacy rules prevent microphone monitoring before permission. See [docs/LUMINA.md](docs/LUMINA.md) for details.

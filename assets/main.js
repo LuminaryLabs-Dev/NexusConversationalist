@@ -1,133 +1,223 @@
-// Static GitHub Pages app. Independent speech engines are pinned ESM modules.
+// Lumina is a shell over the existing, independently hosted ESM model modules.
+// Never move model inference into this file or change the imported public APIs.
 import { NexusConversationalist, LFMReasoner } from "../esm/index.js";
 import { NexusDictationBrowser } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusDictation@dfaf2ccb601b70b04e678db777a39a6900949bfc/esm/browser.js";
 import { NexusVoiceBrowser } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusVoice@300549e2e5690d84f570705f7e627ce0a1e92ce0/esm/index.js";
-
-const $ = id => document.getElementById(id);
-const MODELS = [
-  { module: "dictation", label: "Parakeet · NexusDictation", status: "asr-status" },
-  { module: "lfm", label: "LFM2.5 · NexusConversationalist", status: "llm-status" },
-  { module: "voice", label: "Kokoro · NexusVoice", status: "tts-status" }
+import { MicrophoneWakeMonitor } from "./voice-activation.js";
+const $=id=>document.getElementById(id);
+const MODELS=[
+ {module:"dictation",label:"Parakeet · NexusDictation",status:"asr-status"},
+ {module:"lfm",label:"LFM2.5 · NexusConversationalist",status:"llm-status"},
+ {module:"voice",label:"Kokoro · NexusVoice",status:"tts-status"}
 ];
-let app = null, initialized = false, loading = false, current = -1;
-const completed = new Set();
-function report(value) { $("status").textContent = value; }
-function controls() {
-  $("load").disabled = loading || initialized;
-  $("start").disabled = !initialized || app?.listeningEnabled || (app?.active && app.state !== "ready");
-  $("stop").disabled = !app?.active;
-  $("send").disabled = !initialized;
+const orb=$("lumina-orb");
+let app=null,initialized=false,loading=false,current=-1,autoEnabled=false,callOpen=false,starting=false;
+const completed=new Set();
+let currentStatus="Ready to connect";
+const monitor=new MicrophoneWakeMonitor({
+  threshold:.10,
+  onVolume:rms=>{
+    // RMS displayed in GLSL shader, with audible output animated independently during TTS.
+    const boosted=Math.min(1,rms*8);
+    const activity=app?.state==="speaking" ? .6 : app?.state==="thinking" ? .25 : 0;
+    orb.setParams({intensity:Math.max(boosted,activity)});
+  },
+  onRise:()=>{
+    if(!autoEnabled||!initialized||loading||starting||app?.listeningEnabled||
+       (app?.state!=="ready" && app?.state!=="idle"))return;
+    void startListening("volume rise");
+  }
+});
+function status(text){currentStatus=text;$("status").textContent=text;}
+function controls(){
+  $("load").disabled=loading||initialized;
+  $("start").disabled=starting;
+  $("stop").disabled=!callOpen && !app?.active && !monitor.running;
+  $("send").disabled=!initialized;
+  $("auto-enable").setAttribute("aria-pressed",String(autoEnabled));
+  $("auto-label").textContent=autoEnabled?"Auto-listen on":"Auto-listen off";
+  $("auto-toggle").checked=autoEnabled;
 }
-function setState(value) {
-  $("state").textContent = value;
-  $("state-dot").style.background = value === "listening" ? "#4ed3ac" : value === "error" ? "#fa7a83" : "#edbd64";
+function state(value){
+  const stage=String(value||"idle");
+  $("state").textContent=stage.charAt(0).toUpperCase()+stage.slice(1);
+  const flags={listening:"listening",thinking:"thinking",speaking:"speaking",ready:"monitoring",idle:"idle",error:"error"};
+  orb.setParams({mode:flags[stage]||"idle"});
+  monitor.setPaused(["thinking","speaking","listening"].includes(stage));
+  $("state-dot").style.background=stage==="listening"?"#69cfcd":stage==="speaking"?"#a6acfa":stage==="error"?"#ea7998":"#6da9bd";
+  const titles={listening:["I'm listening","Speak naturally. Pause when you're finished."],
+    thinking:["Thinking…","Lumina is putting a response together."],
+    speaking:["Lumina is speaking","You can tap the orb to interrupt."],
+    ready:["I'm here.","Tap to talk or enable automatic listening."],
+    idle:["Hey, I'm Lumina.","Tap the orb to begin a conversation."],
+    error:["Something went wrong","Open settings for details and retry."],
+    loading:["Getting things ready","Downloading the local models."]};
+  const [heading,subtitle]=titles[stage]||titles.ready;
+  $("call-heading").textContent=heading;$("call-subtitle").textContent=subtitle;
+  $("call-state").textContent=stage==="listening"?"Microphone live":stage==="speaking"?"Voice output":stage==="thinking"?"Processing your message":stage==="ready"?"Ready for your voice":"Tap Lumina to talk";
   controls();
 }
-function addMessage({ role, content }) {
+function message({role,content}){
   $("history").querySelector(".empty")?.remove();
-  const line = document.createElement("div");
-  line.className = "message " + (role === "user" ? "user" : "assistant");
-  const title = document.createElement("div"); title.className = "role"; title.textContent = role;
-  const body = document.createElement("div"); body.textContent = content;
-  line.append(title, body);
-  $("history").append(line);
-  $("history").scrollTop = $("history").scrollHeight;
+  const line=document.createElement("div");line.className="message "+(role==="user"?"user":"assistant");
+  const label=document.createElement("div");label.className="role";label.textContent=role;
+  const value=document.createElement("div");value.textContent=content;
+  line.append(label,value);$("history").append(line);$("history").scrollTop=$("history").scrollHeight;
+  $("latest-message").textContent=(role==="assistant"?"Lumina: ":"You: ")+content;
 }
-function updateProgress(event) {
-  const i = MODELS.findIndex(model => model.module === event.module);
-  if (i < 0 || i < current || (i === current && completed.has(event.module))) return;
-  const model = MODELS[i];
-  if (i !== current) {
-    current = i;
-    $("progress-model").textContent = model.label;
-    $("progress-step").textContent = "Model " + (i + 1) + " of 3";
+function progress(event){
+  const i=MODELS.findIndex(x=>x.module===event.module);
+  if(i<0||i<current||(i===current&&completed.has(event.module)))return;
+  const m=MODELS[i];
+  if(i!==current){current=i;$("progress-model").textContent=m.label;
+    $("progress-step").textContent="Model "+(i+1)+" of 3";
     $("download-progress").removeAttribute("value");
-    $("progress-percent").textContent = "Preparing…";
-    $("progress-bytes").textContent = "Transfer size not yet available";
+    $("progress-percent").textContent="Preparing…";
+    $("progress-bytes").textContent="Transfer size not yet available";}
+  const detail=event.detail||event.message||event.phase||"Loading";
+  $(m.status).textContent=detail;
+  if(event.phase==="ready"){
+    completed.add(m.module);$("download-progress").value=100;
+    $("progress-percent").textContent="Ready · 100%";
+    $("progress-bytes").textContent="Model "+(i+1)+" of 3 complete";
+  }else if(Number.isFinite(event.totalBytes)&&event.totalBytes>0&&Number.isFinite(event.loadedBytes)){
+    const loaded=Math.max(0,Math.min(event.totalBytes,event.loadedBytes));
+    const percent=Math.min(99,Math.max(0,100*loaded/event.totalBytes));
+    $("download-progress").value=percent;
+    $("progress-percent").textContent=percent.toFixed(1)+"%";
+    $("progress-bytes").textContent=(loaded/1e6).toFixed(1)+" / "+(event.totalBytes/1e6).toFixed(1)+" MB";
+  }else if(Number.isFinite(event.percent)&&event.percent<100){
+    $("download-progress").value=Math.min(99,Math.max(0,event.percent));
+    $("progress-percent").textContent=event.percent.toFixed(1)+"%";
   }
-  const detail = event.detail || event.message || event.phase || "Loading";
-  $(model.status).textContent = detail;
-  if (event.phase === "ready") {
-    completed.add(model.module);
-    $("download-progress").value = 100;
-    $("progress-percent").textContent = "Ready · 100%";
-    $("progress-bytes").textContent = "Model " + (i + 1) + " of 3 complete";
-  } else if (Number.isFinite(event.totalBytes) && event.totalBytes > 0 && Number.isFinite(event.loadedBytes)) {
-    const loaded = Math.max(0, Math.min(event.totalBytes, event.loadedBytes));
-    const percentage = Math.min(99, Math.max(0, loaded / event.totalBytes * 100));
-    $("download-progress").value = percentage;
-    $("progress-percent").textContent = percentage.toFixed(1) + "%";
-    $("progress-bytes").textContent = (loaded / 1e6).toFixed(1) + " / " + (event.totalBytes / 1e6).toFixed(1) + " MB";
-  } else if (Number.isFinite(event.percent) && event.percent < 100) {
-    $("download-progress").value = Math.min(99, Math.max(0, event.percent));
-    $("progress-percent").textContent = event.percent.toFixed(1) + "%";
-  }
-  report(model.label + ": " + detail);
+  status(m.label+": "+detail);
 }
-function resetProgress() {
-  completed.clear(); current = -1;
-  $("download-panel").hidden = false;
+function resetProgress(){
+  completed.clear();current=-1;$("download-panel").hidden=false;
   $("download-progress").removeAttribute("value");
-  $("progress-model").textContent = "Preparing models";
-  $("progress-step").textContent = "Model 1 of 3";
-  $("progress-percent").textContent = "Preparing…";
-  $("progress-bytes").textContent = "Transfer size not yet available";
-  for (const model of MODELS) $(model.status).textContent = "Waiting to load";
+  $("progress-model").textContent="Preparing models";
+  $("progress-step").textContent="Model 1 of 3";
+  $("progress-percent").textContent="Preparing…";
+  $("progress-bytes").textContent="Transfer size not yet available";
+  for(const m of MODELS)$(m.status).textContent="Waiting";
 }
-$("load").addEventListener("click", async () => {
-  loading = true; controls(); resetProgress(); $("load").textContent = "Loading…";
-  try {
-    if (!navigator.gpu || !await navigator.gpu.requestAdapter())
-      throw new Error("WebGPU is unavailable. Use current desktop Chrome with GPU acceleration enabled.");
-    app = new NexusConversationalist({
-      dictator: new NexusDictationBrowser(),
-      voice: new NexusVoiceBrowser({ backend: "auto" }),
-      reasoner: new LFMReasoner({ dtype: "q4", maxTokens: 110 })
+async function loadModels(){
+  if(initialized)return true;if(loading)return false;
+  loading=true;controls();resetProgress();state("loading");$("load").textContent="Loading…";
+  try{
+    if(!navigator.gpu||!await navigator.gpu.requestAdapter())throw new Error("WebGPU unavailable. Try current Chrome with hardware acceleration.");
+    app=new NexusConversationalist({
+      dictator:new NexusDictationBrowser(),voice:new NexusVoiceBrowser({backend:"auto"}),
+      reasoner:new LFMReasoner({dtype:"q4",maxTokens:110})
     });
-    app.on("message", addMessage);
-    app.on("state", setState);
-    app.on("partial", t => { $("partial").textContent = t.text; });
-    app.on("status", updateProgress);
-    app.on("error", e => report("Error: " + (e.message || e)));
-    await app.initialize();
-    initialized = true;
-    $("load").textContent = "Models loaded";
-    $("progress-model").textContent = "All 3 models ready";
-    $("progress-step").textContent = "3 of 3";
-    $("progress-percent").textContent = "Ready";
-    $("progress-bytes").textContent = "Model inference runs locally";
-    $("download-progress").value = 100;
-    setState("Models ready");
-    report("All models are ready. Start listening or type a message.");
-  } catch (error) {
-    const label = current >= 0 ? MODELS[current].label : "WebGPU";
-    report("Initialization failed at " + label + ": " + (error.message || error) + ". Select Retry models.");
-    if (current >= 0) $(MODELS[current].status).textContent = "Error · Retry available";
-    $("progress-model").textContent = "Could not load " + label;
-    $("progress-percent").textContent = "Failed";
-    app?.dispose(); app = null; initialized = false;
-    $("load").textContent = "Retry models";
-    setState("Load failed");
-  } finally { loading = false; controls(); }
+    app.on("message",message);app.on("state",state);
+    app.on("partial",t=>{$("partial").textContent=t.text;});
+    app.on("status",progress);app.on("error",e=>status("Error: "+(e.message||e)));
+    await app.initialize();initialized=true;
+    $("load").textContent="Models ready";
+    $("progress-model").textContent="All models ready";
+    $("progress-step").textContent="3 of 3";
+    $("download-progress").value=100;$("progress-percent").textContent="Ready";
+    $("progress-bytes").textContent="Inference runs locally";
+    state("ready");status("Lumina is ready. Tap the orb to talk.");return true;
+  }catch(error){
+    const label=current>=0?MODELS[current].label:"WebGPU";
+    status("Initialization failed at "+label+": "+(error.message||error)+". Open settings to retry.");
+    if(current>=0)$(MODELS[current].status).textContent="Error · Retry available";
+    $("progress-model").textContent="Could not load "+label;
+    $("progress-percent").textContent="Failed";
+    app?.dispose();app=null;initialized=false;
+    $("load").textContent="Retry models";state("error");return false;
+  }finally{loading=false;controls();}
+}
+async function ensureMonitor(){
+  if(monitor.running)return;
+  await monitor.start();$("mic-status").textContent="Microphone permission granted · Listening locally";
+}
+async function startListening(source="tap"){
+  if(starting)return;
+  if(app?.state==="listening"){
+    // Tapping while recording finalizes current speech; if silent, resume recording.
+    try{const result=await app.dictator.stop({finalize:true});
+      if(!result&&app.active){await app.dictator.start();state("listening");}
+    }catch(error){status("Dictation error: "+error.message);}return;
+  }
+  if(app?.state==="speaking"){
+    app.voice.stop();status("Interrupted Lumina. Returning to listening.");return;
+  }
+  if(app?.state==="thinking")return;
+  starting=true;callOpen=true;controls();
+  try{
+    // Called directly from the click handler: permission can be granted before downloads.
+    const pendingMic=ensureMonitor().then(()=>({ok:true}),error=>({ok:false,error}));
+    const loaded=await loadModels();
+    const mic=await pendingMic;
+    if(!mic.ok)throw mic.error;
+    if(!loaded)return;
+    await app.start();
+    status(source==="volume rise"?"Detected a volume rise. Listening…":"Listening. Speak naturally.");
+  }catch(error){status("Microphone: "+(error.message||error));state("error");}
+  finally{starting=false;controls();}
+}
+async function toggleAuto(enabled){
+  autoEnabled=Boolean(enabled);controls();
+  if(!autoEnabled){monitor.setEnabled(false);status("Automatic listening is off. Tap Lumina to talk.");return;}
+  try{
+    await ensureMonitor(); // user click ensures microphone permission
+    monitor.setEnabled(true);
+    const loaded=await loadModels();
+    if(!loaded){autoEnabled=false;monitor.setEnabled(false);controls();return;}
+    callOpen=true;controls();
+    status("Auto-listen armed. A 10% rise over ambient volume starts transcription.");
+    if(app.state==="idle"||app.state==="ready")state("ready");
+  }catch(error){autoEnabled=false;monitor.setEnabled(false);controls();status("Microphone permission failed: "+error.message);}
+}
+async function endCall(){
+  autoEnabled=false;monitor.setEnabled(false);callOpen=false;
+  try{await app?.stop();await monitor.stop();state("idle");status("Call ended. Tap Lumina to start again.");}
+  catch(error){status("End call: "+error.message);}finally{controls();}
+}
+function openChat(open){
+  $("chat-panel").classList.toggle("open",open);
+  $("chat-panel").inert=!open;
+  $("scrim").hidden=!open;
+  $("chat-toggle").setAttribute("aria-expanded",String(open));
+  if(open)$("chat-close").focus();else $("chat-toggle").focus();
+}
+$("settings-open").addEventListener("click",()=>$("settings").showModal());
+$("settings-close").addEventListener("click",()=>$("settings").close());
+$("load").addEventListener("click",()=>void loadModels());
+$("start").addEventListener("click",()=>void startListening());
+$("stop").addEventListener("click",()=>void endCall());
+$("auto-enable").addEventListener("click",()=>void toggleAuto(!autoEnabled));
+$("auto-toggle").addEventListener("change",e=>void toggleAuto(e.target.checked));
+$("wake-threshold").addEventListener("input",e=>{
+  const n=Number(e.target.value);monitor.setThreshold(n);$("threshold-value").textContent=n+"%";
 });
-$("start").addEventListener("click", async () => {
-  try { await app.start(); controls(); report("Listening. Speak and pause to send a message."); }
-  catch (e) { report("Microphone error: " + e.message); controls(); }
+$("orb-wave").addEventListener("input",e=>{
+  const val=Number(e.target.value);orb.setParams({wave:val/100});$("wave-value").textContent=val+"%";
 });
-$("stop").addEventListener("click", async () => {
-  try { await app.stop(); report("Stopped."); } catch (e) { report("Stop failed: " + e.message); }
-  $("partial").textContent = ""; setState("Stopped");
+$("orb-speed").addEventListener("input",e=>{
+  const val=Number(e.target.value);orb.setParams({speed:val/100});$("speed-value").textContent=val+"%";
 });
-$("send-form").addEventListener("submit", async event => {
-  event.preventDefault(); if (!app) return;
-  const message = $("text").value.trim(); if (!message) return;
-  $("text").value = ""; $("send").disabled = true;
-  try {
-    if (!app.active) await app.start({ listen: false });
-    await app.send(message); $("partial").textContent = "";
-  } catch (error) { report("Message failed: " + (error.message || error)); }
-  finally { controls(); }
+$("chat-toggle").addEventListener("click",()=>openChat(true));
+$("chat-close").addEventListener("click",()=>openChat(false));
+$("scrim").addEventListener("click",()=>openChat(false));
+$("send-form").addEventListener("submit",async e=>{
+  e.preventDefault();const value=$("text").value.trim();if(!value)return;
+  $("text").value="";$("send").disabled=true;
+  try{if(!initialized){const ok=await loadModels();if(!ok)return;}
+    if(!app.active)await app.start({listen:false});
+    await app.send(value);$("partial").textContent="";
+  }catch(error){status("Message failed: "+(error.message||error));}
+  finally{controls();}
 });
-$("clear").addEventListener("click", () => { if (app) app.messages.length = 0; $("history").replaceChildren(); });
-window.addEventListener("beforeunload", () => { try { app?.dispose(); } catch {} });
+$("clear").addEventListener("click",()=>{
+  if(app)app.messages.length=0;$("history").replaceChildren();
+  $("latest-message").textContent="A voice-first conversation, right in your browser.";
+});
+window.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&$("chat-panel").classList.contains("open"))openChat(false);
+});
+window.addEventListener("beforeunload",()=>{try{monitor.stop();app?.dispose();}catch{}});
 controls();
