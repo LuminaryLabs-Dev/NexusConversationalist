@@ -1,23 +1,21 @@
-# Live MacBook acceptance gates
+# Static GitHub Pages acceptance
 
-## Required hardware
-Apple Silicon MacBook Pro with a recent WebGPU-capable browser, microphone, speakers, Python 3.11+ and enough free memory. This is a **manual hardware test**, not implied by the automated unit suite.
+GitHub Pages must use **Deploy from a branch → main → /(root)**. This repository does not use CI or GitHub Actions for deployment.
 
-## Procedure
-1. Install `moondream>=2.4.0`, start `native/bridge.py` in NexusDictation, confirm `/health` with its session token.
-2. Serve the Conversationalist repo on loopback port 4173. Open `/studio/`, paste the bridge token, click Load models. Verify actual download of Redux, LFM Q4, and Kokoro via Hugging Face and WebGPU adapter acquisition.
-3. Click Start; say a short sentence and pause. Confirm one finalized transcript, one LFM text response, one audible Kokoro reply, and automatic return to Listening.
-4. Repeat ten sequential short turns, one long utterance (>15 seconds), silence, and low-volume input. Assert no AI self-transcription and no duplicate user turn from a preview.
-5. Stop during dictation, during LFM generation, and during speech. Confirm no unhandled reentry or lingering microphone track.
-6. Reload the page, disconnect the internet after caches are populated, confirm expected offline behavior or document the missing cached resources. Test Safari separately if target deployment requires it.
-7. Measure finalization latency, time to first response audio, RAM and GPU memory, transcription WER on real test recordings. Record OS/browser versions and hardware.
+## Verify the public page
+1. Load https://luminarylabs-dev.github.io/NexusConversationalist/ and verify root `index.html`, `assets/site.css`, `assets/main.js`, and `esm/index.js` all return HTTP 200.
+2. Use Chrome on an Apple Silicon Mac. Inspect `navigator.gpu.requestAdapter()` before running the models.
+3. Click Load models. Confirm browser downloads model files from Hugging Face and resolves jsDelivr ESM imports for NexusDictation and NexusVoice. Expect a large initial download. Confirm all three report Loaded.
+4. Test **Send text** first: no microphone permission prompt; LFM text response appears and NexusVoice speaks it.
+5. Click Start listening. Speak and pause. Confirm Parakeet returns one finalized transcript, LFM responds, Kokoro plays audio, and input resumes.
+6. Repeat 10 turns. Check no self-transcription, no duplicate finalized turns and no stuck speaking state.
+7. Click Stop during ASR, LFM, and playback and verify microphone tracks terminate and no late stale response plays.
+8. Test actual model download failures, microphone denial, no WebGPU, offline reload, mobile layout, and browser console warnings.
+9. Record inference latency, memory use and hardware/browser details.
 
-## Known limitations
-- Redux/Photon is native CPU/Metal; it is not a browser WebGPU model. `bridge.py` is required for browser dictation.
-- No microphone barge-in during playback; this is intentionally half-duplex.
-- CDN ESM imports need internet or vendoring even when models are cached.
-- LFM ONNX Q4 ~1.2 GB and Kokoro first-run assets require downloading.
-- No real-microphone / real-model / headless browser test has been run by the repository's Node suite.
-- Check LFM license, model attribution and NexusVoice native third-party notices before redistribution.
-
-The Studio uses immutable jsDelivr commit SHAs for its speech imports; update them deliberately with each compatible release.
+## Deliberate limitations
+* Browser-only ASR uses Parakeet TDT v3, **not** Photon/Redux; native NexusDictation separately supports Redux.
+* Turn-taking is half-duplex; no microphone barge-in while speaking.
+* This repository contains static ESM source and a ready-to-serve root Pages site, but no model binaries.
+* Unit tests do not validate live GPU inference.
+* Pages publication may take time to become accessible after pushes.

@@ -1,62 +1,59 @@
 # NexusConversationalist
 
-A local, half-duplex conversational controller that connects three **independently versioned ESM modules**:
+**Static, serverless, local-inference conversation studio.** The build is committed directly to the repository root and published with **GitHub Pages → Deploy from a branch → main → /(root)**. No CI, bundler or deployment action is required.
 
-1. [NexusDictation](https://github.com/LuminaryLabs-Dev/NexusDictation): [moondream/parakeet-redux](https://huggingface.co/moondream/parakeet-redux) through the native Photon localhost bridge. Microphone -> text.
-2. **NexusConversationalist**: [LiquidAI/LFM2.5-1.2B-Instruct-ONNX](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-ONNX), **Q4 on WebGPU**. Text -> response text. Model loading and reasoning stay inside this repository.
-3. [NexusVoice](https://github.com/LuminaryLabs-Dev/NexusVoice): [Kokoro-82M-v1.0-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) via browser worker, WebGPU FP32 or WASM Q8. Text -> audio.
+## Open the public app
 
-The controller owns listening/processing/speaking state and suppresses microphone capture during speech playback. Transcript previews are never used as commands. No server-hosted text or speech API is used.
+**https://luminarylabs-dev.github.io/NexusConversationalist/**
 
-## MacBook quick start
+Use an up-to-date WebGPU-capable desktop Chrome browser, ideally on an Apple Silicon MacBook Pro. Click **Load models** (the first model downloads are large), then **Start listening**, speak, pause, and wait for the spoken response. After playback it resumes listening. **Send text** lets you try LFM + Kokoro without microphone access. Permission to use the microphone is requested only on Start listening.
 
-1. On an Apple Silicon Mac, launch the **native** NexusDictation bridge:
-   ```bash
-   git clone https://github.com/LuminaryLabs-Dev/NexusDictation.git
-   cd NexusDictation
-   python3 -m venv .venv && source .venv/bin/activate
-   pip install "moondream>=2.4.0"
-   python3 native/bridge.py --device cpu
-   ```
-   Photon downloads Parakeet Redux from Hugging Face on first launch. Copy the printed **session token**.
-2. Serve this repository as a static site from localhost:
-   ```bash
-   python3 -m http.server 4173 --bind 127.0.0.1
-   ```
-   Open **http://127.0.0.1:4173/studio/** in a current WebGPU-capable browser. Paste the bridge token and select `Load models`. Hugging Face will download LFM Q4 and Kokoro on first run. This needs ~1.2 GB LFM weights plus TTS assets and additional working memory; ensure enough free space/RAM.
-3. Click **Start listening** and speak a short sentence. After silence, Photon finalizes transcription, LFM creates a response, Kokoro speaks, and recording automatically resumes. Click **Stop** to end. `Send text` tests the LFM + Kokoro path without a microphone.
+### The three independent ESM modules
 
-**The two imported speech repos are delivered as plain JavaScript ESM over jsDelivr**. The local Studio imports `esm/index.js` from each repository and the LFM module locally; no bundler or global variables are required. For production, pin immutable commit SHAs/releases instead of `@main`. Browser CDN imports and real GPU model inference require an on-device smoke test; offline reuse depends on caches and CDN module availability. For fully offline distribution, vendor/pin the JS modules and model weights.
+| Module | Web inference engine | Role |
+| --- | --- | --- |
+| [NexusDictation](https://github.com/LuminaryLabs-Dev/NexusDictation) | [Parakeet TDT v3 ONNX int4](https://huggingface.co/efederici/parakeet-tdt-0.6b-v3-onnx-int4) through parakeet.js WebGPU + WASM | Microphone → text |
+| NexusConversationalist | [LFM2.5-1.2B-Instruct ONNX](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-ONNX), Q4 WebGPU | Conversation state + text reasoning |
+| [NexusVoice](https://github.com/LuminaryLabs-Dev/NexusVoice) | [Kokoro 82M ONNX](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX), WebGPU FP32 or WASM Q8 fallback | Text → speech |
 
-## JavaScript integration
+**Important model distinction:** The earlier **[Parakeet Redux](https://huggingface.co/moondream/parakeet-redux)** model requires Photon (native CPU/Metal) and is retained in NexusDictation for native macOS applications. The GitHub Pages deployment cannot execute Photon/Python, so the web build uses the compatible Parakeet **TDT v3** model instead. The browser will download approximately 409 MB of ASR weights, LFM Q4 weights and Kokoro assets from Hugging Face. Allow substantial free disk/GPU memory. All inference runs on-device after downloading, not on an external inference API.
 
-```js
-import { NexusConversationalist, LFMReasoner } from "./esm/index.js";
-import { NexusDictation } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusDictation@a875191afe62dc0429c254f7864d02a4b43ea7a8/esm/index.js";
-import { NexusVoiceBrowser } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusVoice@300549e2e5690d84f570705f7e627ce0a1e92ce0/esm/index.js";
+## Repository / static build
 
-const app = new NexusConversationalist({
-  dictator: new NexusDictation({ token: "token-printed-by-Python-bridge" }),
-  voice: new NexusVoiceBrowser({ backend: "auto" }),
-  reasoner: new LFMReasoner({ dtype: "q4" })
-});
-app.on("message", console.log);
-app.on("state", console.log);
-await app.initialize(); // WebGPU, models and Photon must be available
-await app.start();      // user gesture required for microphone/audio
-// await app.stop(); app.dispose();
+```
+NexusConversationalist/
+├── index.html               # Actual GitHub Pages root entrypoint
+├── .nojekyll                # Serve files as-is
+├── assets/
+│   ├── main.js              # Imports two independent ESM repositories
+│   └── site.css
+├── esm/
+│   ├── index.js             # Conversation controller / turn manager
+│   ├── lfm.js               # LFM ESM wrapper
+│   └── lfm-worker.js        # LFM WebGPU inference
+├── tests/
+└── docs/
 ```
 
-### State contract
+All static assets are committed directly to `main`. No GitHub Actions workflow is used for this Pages site. The browser imports immutable GitHub commit-pinned NexusDictation and NexusVoice ESM modules through jsDelivr, and its local LFM worker loads the official Liquid AI ONNX export through Transformers.js. Browser CDN imports require network access on first visit and must be vendored for a completely offline distribution.
 
-`idle -> listening -> thinking -> speaking -> listening`. Events: `state`, `partial`, `message`, `error`. Manual `send(text)` works in an active session and gates capture. `stop()` invalidates any in-flight reasoning or speech.
+To preview the same root build locally:
 
-Model reasoning is pluggable but defaults to the official LFM2.5-1.2B-Instruct-ONNX WebGPU export. The controller does not automatically execute LLM-suggested actions. Actions require an explicit host-side registration and authorization callback, and successful application execution before confirmation.
+```bash
+git clone https://github.com/LuminaryLabs-Dev/NexusConversationalist.git
+cd NexusConversationalist
+python3 -m http.server 4173 --bind 127.0.0.1
+# open http://127.0.0.1:4173/
+```
 
-## Validation
+## Conversation contract
 
-`node --test tests/*.test.js` tests the turn manager with fake model adapters. It does **not** prove actual model inference, live microphone capture, CDN module loading, or macOS runtime compatibility. Those require the MacBook acceptance run documented in `docs/ACCEPTANCE.md`.
+`idle → listening → thinking → speaking → listening` for voice turns. Input capture is stopped while the AI thinks and speaks. Only finalized ASR transcripts trigger turns; duplicates are ignored. `start({listen:false})` enables text-only conversation without requesting microphone permissions. Typed messages use the same reasoning and TTS path. Actions are opt-in; the host must explicitly register and authorize any application action.
 
-## Licenses / security
+## Verification and limitations
 
-Parakeet Redux is CC-BY-4.0; Kokoro ONNX is Apache-2.0; LFM2.5 uses the separate **LFM 1.0 License**, which must be checked before commercial redistribution. NexusVoice's native eSpeak NG phonemizer has an additional unresolved GPL redistribution issue. No model weights, microphone recordings, or token secrets are committed.
+Run `node --test tests/*.test.js` **locally**, without CI. Tests exercise the turn-state protocol using mocked model adapters. Live microphone, GPU model weights, WASM decoder, CDN module loading, speech synthesis and sustained sessions require a real MacBook/browser acceptance run. Do not claim those runtime gates are passed until tested on actual target hardware. The sandbox's headless Chromium renderer could not complete a screenshot, so that visual gate also remains open.
+
+Review [LFM 1.0 license](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-ONNX/blob/main/LICENSE), model licenses and NexusVoice's third-party notices before selling a packaged version. No user audio or transcripts are persisted by default.
+
+See [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) for the actual-hardware verification checklist.
