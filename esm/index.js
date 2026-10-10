@@ -13,12 +13,14 @@ export class NexusConversationalist {
     this.completed = new Set();
     this.state = "idle";
     this.active = false;
+    this.listeningEnabled = false;
     this.generation = 0;
     this.initialized = false;
     this.actions = new Map();
     this.offDictation = [
       dictator.on("partial", t => this.emit("partial", t)),
       dictator.on("final", t => { void this.receiveFinal(t); }),
+      dictator.on("status", s => this.emit("status", { module: "dictation", ...s })),
       dictator.on("error", e => this.emit("error", e))
     ];
     this.reasoner.on?.("status", s => this.emit("status", { module: "lfm", ...s }));
@@ -44,16 +46,18 @@ export class NexusConversationalist {
     try { return await this.initPromise; }
     catch (e) { this.initPromise = null; this.emit("error", e); throw e; }
   }
-  async start() {
-    if (this.active) return;
+  async start({ listen = true } = {}) {
     await this.initialize();
-    this.active = true;
-    ++this.generation;
+    if (this.active && (!listen || this.listeningEnabled)) return;
+    if (!this.active) { this.active = true; ++this.generation; }
+    if (!listen) { this.setState("ready"); return; }
     try {
       await this.dictator.start();
+      this.listeningEnabled = true;
       this.setState("listening");
     } catch (error) {
       this.active = false;
+      this.listeningEnabled = false;
       this.setState("error");
       this.emit("error", error);
       throw error;
@@ -61,6 +65,7 @@ export class NexusConversationalist {
   }
   async receiveFinal(event) {
     if (!this.active || !event?.isFinal || !event.text?.trim()) return;
+    if (this.state === "thinking" || this.state === "speaking") return;
     if (this.completed.has(event.utteranceId)) return;
     this.completed.add(event.utteranceId);
     if (this.completed.size > 100) this.completed.delete(this.completed.values().next().value);
@@ -70,7 +75,7 @@ export class NexusConversationalist {
     if (!this.active) throw new Error("Start a conversation before sending");
     if (!text || !text.trim()) return;
     if (this.state === "thinking" || this.state === "speaking") throw new Error("Turn already in progress");
-    await this.dictator.stop({ finalize: false });
+    if (this.listeningEnabled) await this.dictator.stop({ finalize: false });
     return this.process(text.trim());
   }
   async process(text) {
@@ -85,11 +90,14 @@ export class NexusConversationalist {
       this.setState("speaking");
       await this.voice.speak(reply);
       if (!this.active || turn !== this.generation) return;
-      await this.dictator.start();
-      this.setState("listening");
+      if (this.listeningEnabled) {
+        await this.dictator.start();
+        this.setState("listening");
+      } else this.setState("ready");
     } catch (error) {
       if (!this.active || turn !== this.generation) return;
       this.active = false;
+      this.listeningEnabled = false;
       this.setState("error");
       this.emit("error", error);
     }
@@ -116,6 +124,7 @@ export class NexusConversationalist {
   async stop() {
     ++this.generation;
     this.active = false;
+    this.listeningEnabled = false;
     this.voice.stop();
     try { await this.dictator.stop({ finalize: false }); }
     finally { this.setState("idle"); }
@@ -123,6 +132,7 @@ export class NexusConversationalist {
   dispose() {
     ++this.generation;
     this.active = false;
+    this.listeningEnabled = false;
     this.voice.stop();
     void this.dictator.stop({ finalize: false });
     for (const unsub of this.offDictation) unsub?.();
