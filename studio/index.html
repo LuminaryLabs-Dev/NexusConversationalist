@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NexusConversationalist · Local Voice Studio</title>
+<link rel="stylesheet" href="./style.css">
+</head><body><main>
+<header><span class="kicker">LUMINARY LABS · LOCAL VOICE</span><h1>NexusConversationalist</h1>
+<p>Parakeet Redux dictation → LFM2.5-1.2B reasoning → Kokoro voice, controlled as one conversation.</p></header>
+<section class="setup">
+<label for="token">Local NexusDictation session token</label>
+<input id="token" type="password" autocomplete="off" placeholder="Paste token printed by bridge.py">
+<div class="controls">
+<button id="load">1. Load models</button>
+<button id="start" disabled>2. Start listening</button>
+<button id="stop" disabled>Stop conversation</button>
+</div>
+<div class="state"><span id="indicator"></span> <strong id="state">Not initialized</strong></div>
+<div id="status" role="status" aria-live="polite">Run NexusDictation's local bridge, then load models.</div>
+</section>
+<section><h2>Conversation</h2><div id="history" aria-live="polite"></div>
+<form id="send-form"><input id="text" placeholder="Optional: test text → LFM → speech" autocomplete="off"><button id="send" disabled>Send text</button></form></section>
+<footer>All three inference models run locally after loading. Microphone is gated while NexusVoice speaks. <a href="https://huggingface.co/moondream/parakeet-redux">Parakeet</a> · <a href="https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-ONNX">LFM</a> · <a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX">Kokoro</a></footer>
+</main><script type="module" src="./main.js"></script></body></html>
