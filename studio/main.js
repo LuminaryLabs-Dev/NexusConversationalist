@@ -1,7 +1,7 @@
 // Three independent public ESM modules: the two speech engines arrive via jsDelivr.
 import { NexusConversationalist, LFMReasoner } from "../esm/index.js";
-import { NexusDictation } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusDictation@main/esm/index.js";
-import { NexusVoiceBrowser } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusVoice@main/esm/index.js";
+import { NexusDictation } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusDictation@a875191afe62dc0429c254f7864d02a4b43ea7a8/esm/index.js";
+import { NexusVoiceBrowser } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusVoice@300549e2e5690d84f570705f7e627ce0a1e92ce0/esm/index.js";
 
 const $ = id => document.getElementById(id);
 let app = null;

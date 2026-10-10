@@ -19,3 +19,5 @@ Apple Silicon MacBook Pro with a recent WebGPU-capable browser, microphone, spea
 - LFM ONNX Q4 ~1.2 GB and Kokoro first-run assets require downloading.
 - No real-microphone / real-model / headless browser test has been run by the repository's Node suite.
 - Check LFM license, model attribution and NexusVoice native third-party notices before redistribution.
+
+The Studio uses immutable jsDelivr commit SHAs for its speech imports; update them deliberately with each compatible release.

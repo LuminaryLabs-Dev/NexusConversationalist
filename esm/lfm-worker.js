@@ -7,7 +7,7 @@ async function ensure(dtype) {
   if (loading) return loading;
   loading = (async () => {
     scope.postMessage({ type: "status", phase: "loading", detail: "Downloading LFM2.5 Q4 from Hugging Face" });
-    const tf = await import("https://esm.sh/@huggingface/transformers@3.8.1?bundle");
+    const tf = await import("https://esm.sh/@huggingface/transformers@4.3.1?bundle");
     TextStreamer = tf.TextStreamer;
     tokenizer = await tf.AutoTokenizer.from_pretrained(MODEL);
     model = await tf.AutoModelForCausalLM.from_pretrained(MODEL, { device: "webgpu", dtype });
