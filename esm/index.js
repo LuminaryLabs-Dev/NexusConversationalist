@@ -2,10 +2,11 @@ import { LFMReasoner, LFM_MODEL, LFM_CARD } from "./lfm.js";
 export { LFMReasoner, LFM_MODEL, LFM_CARD };
 
 export class NexusConversationalist {
-  constructor({ dictator, voice, reasoner = new LFMReasoner(), maxMessages = 16 } = {}) {
+  constructor({ dictator, voice, reasoner = new LFMReasoner(), maxMessages = 16, reflex = null } = {}) {
     if (!dictator || !voice || !reasoner) throw new Error("Dictation, voice and reasoning adapters required");
     this.dictator = dictator;
     this.voice = voice;
+    this.reflex = reflex;
     this.reasoner = reasoner;
     this.maxMessages = maxMessages;
     this.messages = [];
@@ -90,12 +91,33 @@ export class NexusConversationalist {
     const turn = this.generation;
     this.setState("thinking");
     this.addMessage("user", text);
+    let acknowledgmentTimer = null;
+    const acknowledgmentSignal = new AbortController();
     try {
-      const reply = await this.reasoner.respond(this.messages);
-      if (!this.active || turn !== this.generation) return;
-      this.addMessage("assistant", reply);
-      this.setState("speaking");
-      await this.voice.speak(reply);
+      const shortcut = this.reflex?.route(text);
+      if (shortcut) {
+        // Pre-recorded responses bypass LFM entirely.
+        this.addMessage("assistant", shortcut.text);
+        this.setState("speaking");
+        const played = await this.reflex.play(shortcut.clip.id, {ignoreCooldown: true})
+          .catch(error => {this.emit("reflex", {type:"clip-error",message:error.message});return false;});
+        if (!played) await this.voice.speak(shortcut.text);
+      } else {
+        // Non-committal filler is allowed only while the language model is thinking.
+        if (this.reflex) acknowledgmentTimer = setTimeout(() => {
+          if (!this.active || turn !== this.generation || this.state !== "thinking") return;
+          void this.reflex.play("thinking.one-moment", {priority:15,signal:acknowledgmentSignal.signal})
+            .catch(error => this.emit("reflex",{type:"ack-error",message:error.message}));
+        }, 950);
+        const reply = await this.reasoner.respond(this.messages);
+        if (acknowledgmentTimer !== null) clearTimeout(acknowledgmentTimer);
+        acknowledgmentSignal.abort();
+        this.reflex?.stop();
+        if (!this.active || turn !== this.generation) return;
+        this.addMessage("assistant", reply);
+        this.setState("speaking");
+        await this.voice.speak(reply);
+      }
       if (!this.active || turn !== this.generation) return;
       if (this.listeningEnabled) {
         await this.dictator.start();
@@ -107,6 +129,10 @@ export class NexusConversationalist {
       this.listeningEnabled = false;
       this.setState("error");
       this.emit("error", error);
+    } finally {
+      if (acknowledgmentTimer !== null) clearTimeout(acknowledgmentTimer);
+      acknowledgmentSignal.abort();
+      this.reflex?.stop();
     }
   }
   addMessage(role, content) {
@@ -132,6 +158,7 @@ export class NexusConversationalist {
     ++this.generation;
     this.active = false;
     this.listeningEnabled = false;
+    this.reflex?.stop();
     this.voice.stop();
     try { await this.dictator.stop({ finalize: false }); }
     finally { this.setState("idle"); }
@@ -140,6 +167,7 @@ export class NexusConversationalist {
     ++this.generation;
     this.active = false;
     this.listeningEnabled = false;
+    this.reflex?.stop();
     this.voice.stop();
     void this.dictator.stop({ finalize: false });
     for (const unsub of this.offDictation) unsub?.();

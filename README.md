@@ -71,3 +71,7 @@ The root GitHub Pages shell now presents NexusConversationalist as **Lumina**, c
 The orb is a standalone custom element: `<lumina-orb intensity="0.12" pulse="0.48" wave="0.38" speed="0.85"></lumina-orb>`. Import `assets/lumina-orb.js` as a module and change GLSL uniforms live with `setParams({ intensity, pulse, wave, speed, hue, mode })`. No new dependency or build step.
 
 **Voice activation** is optional and off by default. After a user grants microphone permission, a local RMS monitor compares audio against a rolling ambient baseline and starts NexusDictation on a sustained rise of at least 10%, with a noise floor and cooldown. The Settings panel adjusts sensitivity, and tapping the orb starts listening manually. Ambient volume detection is not a wake word; other sounds may trigger it. Browser privacy rules prevent microphone monitoring before permission. See [docs/LUMINA.md](docs/LUMINA.md) for details.
+
+## Lumina Reflex Kit (2026-10-10)
+
+Lumina now uses conservative known-phrase routing so short greetings bypass LFM, while open-ended questions continue through LFM + NexusVoice. There is a 43-phrase Kokoro catalog, IndexedDB recording cache, prioritized single-channel scheduler, and Settings-based **Prepare all 43 voice clips** action. Four common clips are prepared after model loading. Optional NexusEngine Speech Kit provider adapter: `esm/reflex/nexusengine-adapter.js`. See [Reflex documentation](docs/REFLEX.md) for generation, validation and limitations. Entries marked generated=false have no packaged audio yet.

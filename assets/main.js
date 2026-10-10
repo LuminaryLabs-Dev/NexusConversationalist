@@ -4,6 +4,7 @@ import { NexusConversationalist, LFMReasoner } from "../esm/index.js";
 import { NexusDictationBrowser } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusDictation@dfaf2ccb601b70b04e678db777a39a6900949bfc/esm/browser.js";
 import { NexusVoiceBrowser } from "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusVoice@300549e2e5690d84f570705f7e627ce0a1e92ce0/esm/index.js";
 import { MicrophoneWakeMonitor } from "./voice-activation.js";
+import { LuminaReflexKit } from "../esm/reflex/index.js";
 const $=id=>document.getElementById(id);
 const MODELS=[
  {module:"dictation",label:"Parakeet · NexusDictation",status:"asr-status"},
@@ -11,7 +12,7 @@ const MODELS=[
  {module:"voice",label:"Kokoro · NexusVoice",status:"tts-status"}
 ];
 const orb=$("lumina-orb");
-let app=null,initialized=false,loading=false,current=-1,autoEnabled=false,callOpen=false,starting=false;
+let app=null,reflex=null,initialized=false,loading=false,current=-1,autoEnabled=false,callOpen=false,starting=false,preparing=false;
 const completed=new Set();
 let currentStatus="Ready to connect";
 const monitor=new MicrophoneWakeMonitor({
@@ -106,8 +107,19 @@ async function loadModels(){
   loading=true;controls();resetProgress();state("loading");$("load").textContent="Loading…";
   try{
     if(!navigator.gpu||!await navigator.gpu.requestAdapter())throw new Error("WebGPU unavailable. Try current Chrome with hardware acceleration.");
+    const response=await fetch(new URL("../audio/lumina/manifest.json",import.meta.url));
+    if(!response.ok)throw new Error("Unable to load Lumina clip manifest");
+    const voice=new NexusVoiceBrowser({backend:"auto"});
+    reflex=new LuminaReflexKit({
+      manifest:await response.json(),voice,
+      onEvent(event){
+        if(event.type==="pack-progress")$("reflex-status").textContent=
+          "Prepared "+event.done+"/"+event.total+" clips"+(event.failures?" · "+event.failures+" failed":"");
+        if(event.type==="clip-error")$("reflex-status").textContent="Clip error: "+event.message;
+      }
+    });
     app=new NexusConversationalist({
-      dictator:new NexusDictationBrowser(),voice:new NexusVoiceBrowser({backend:"auto"}),
+      dictator:new NexusDictationBrowser(),voice,reflex,
       reasoner:new LFMReasoner({dtype:"q4",maxTokens:110})
     });
     app.on("message",message);app.on("state",state);
@@ -119,14 +131,22 @@ async function loadModels(){
     $("progress-step").textContent="3 of 3";
     $("download-progress").value=100;$("progress-percent").textContent="Ready";
     $("progress-bytes").textContent="Inference runs locally";
-    state("ready");status("Lumina is ready. Tap the orb to talk.");return true;
+    state("ready");status("Lumina is ready. Tap the orb to talk.");
+    // Prime the most common responses; use real NexusVoice synthesis and IndexedDB.
+    const warm=await reflex.prepareAll({ids:[
+      "greetings.hey","connection.im-here","thinking.one-moment","encouragement.tell-me-more"
+    ]});
+    $("reflex-status").textContent=warm.failures
+      ? "Some quick phrases unavailable · Retry in Settings"
+      : "Four quick phrases cached for instant playback";
+    return true;
   }catch(error){
     const label=current>=0?MODELS[current].label:"WebGPU";
     status("Initialization failed at "+label+": "+(error.message||error)+". Open settings to retry.");
     if(current>=0)$(MODELS[current].status).textContent="Error · Retry available";
     $("progress-model").textContent="Could not load "+label;
     $("progress-percent").textContent="Failed";
-    app?.dispose();app=null;initialized=false;
+    app?.dispose();app=null;reflex=null;initialized=false;
     $("load").textContent="Retry models";state("error");return false;
   }finally{loading=false;controls();}
 }
@@ -143,7 +163,7 @@ async function startListening(source="tap"){
     }catch(error){status("Dictation error: "+error.message);}return;
   }
   if(app?.state==="speaking"){
-    app.voice.stop();status("Interrupted Lumina. Returning to listening.");return;
+    app.reflex?.stop();app.voice.stop();status("Interrupted Lumina. Returning to listening.");return;
   }
   if(app?.state==="thinking")return;
   starting=true;callOpen=true;controls();
@@ -218,6 +238,18 @@ $("clear").addEventListener("click",()=>{
 });
 window.addEventListener("keydown",event=>{
   if(event.key==="Escape"&&$("chat-panel").classList.contains("open"))openChat(false);
+});
+$("reflex-prepare").addEventListener("click",async()=>{
+  if(preparing)return;
+  if(!initialized && !await loadModels())return;
+  if(!reflex)return;
+  preparing=true;$("reflex-prepare").disabled=true;
+  $("reflex-status").textContent="Preparing Kokoro voice clips locally…";
+  try{
+    const result=await reflex.prepareAll();
+    $("reflex-status").textContent="Cached "+(result.done-result.failures)+" of "+result.total+" clips on this device";
+  }catch(error){$("reflex-status").textContent="Preparation failed: "+error.message;}
+  finally{preparing=false;$("reflex-prepare").disabled=false;}
 });
 window.addEventListener("beforeunload",()=>{try{monitor.stop();app?.dispose();}catch{}});
 controls();

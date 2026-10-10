@@ -21,3 +21,8 @@
 - Added optional 10%-relative microphone RMS wake monitoring with baseline/noise-floor/debounce/cooldown and tap-to-listen controls.
 - Kept the three independent ESM model adapters, loading/retry, transcript/chat, typed messages and call control unchanged.
 - Added UI and audio wake unit tests; GitHub Pages remains static root on main with no CI.
+
+## 0.3.0 — 2026-10-10
+- Added Lumina Reflex Kit, a 43-phrase authored catalog, local Kokoro clip caching, routing and prioritized interruptible playback.
+- Wired reflex greetings, noncommittal thinking acknowledgment, and dynamic NexusVoice fallback into conversation turns.
+- Added Settings clip preparation, offline Node/ffmpeg generator, optional NexusEngine speech provider adapter and tests. No CI.

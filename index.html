@@ -59,6 +59,11 @@
       <div class="download-details"><span id="progress-percent">Preparing…</span><span id="progress-bytes">Transfer size not yet available</span></div>
     </section>
   </section>
+  <section class="settings-section"><h3>Instant voice replies</h3>
+    <p class="settings-hint">Lumina answers familiar short phrases from locally cached Kokoro recordings without LFM. More complex questions still use the language model.</p>
+    <button id="reflex-prepare" class="button-primary" type="button">Prepare all 43 voice clips</button>
+    <p id="reflex-status" class="settings-hint" aria-live="polite">Clips are cached locally after preparation</p>
+  </section>
   <section class="settings-section"><h3>Voice activation</h3>
     <label class="setting-row"><span>Auto-listen on volume rise <small>Requires microphone permission. Click the orb to listen at any time.</small></span><input id="auto-toggle" type="checkbox"></label>
     <label class="range-label" for="wake-threshold">Relative volume increase <output id="threshold-value" for="wake-threshold">10%</output></label>
